@@ -21,51 +21,53 @@ wine = load_wine()
 # 데이터 로딩
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.metrics import accuracy_score, classification_report
+from xgboost import XGBClassifier
 
 X = pd.DataFrame(wine.data, columns=wine.feature_names)
 y = wine.target
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
 # 하이퍼파라미터 설정
-param_grid = {
-    'criterion': ['gini', 'entropy'],
-    'max_depth': [2, 5],
-    'min_samples_split': [2, 10],
-    'min_samples_leaf': [1, 2, 4]
+param_grid_xgb = {
+    'max_depth': [3, 5, 7, 9, 15],
+    'learning_rate': [0.1, 0.01, 0.001],
+    'n_estimators': [50, 100, 200, 300]
 }
 
-# 4. 모델 정의 및 GridSearchCV 적용
-dt_model = DecisionTreeClassifier(random_state=42)
-grid_search = GridSearchCV(
-    estimator=dt_model,
-    param_grid=param_grid,
-    scoring='accuracy',
+# XGBoost 모델 정의
+xgb_model = XGBClassifier(use_label_encoder=False, eval_metric='mlogloss', random_state=42)
+
+# GridSearchCV
+grid_xgb = GridSearchCV(
+    estimator=xgb_model,
+    param_grid=param_grid_xgb,
     cv=5,
-    n_jobs=-1,
-    verbose=1
+    scoring='accuracy',
+    verbose=1,
+    n_jobs=-1
 )
 
-grid_search.fit(X_train, y_train)
+grid_xgb.fit(X_train, y_train)
 
-#  5. 최적 모델 평가
-best_dt = grid_search.best_estimator_
-y_pred_dt = best_dt.predict(X_test)
-dt_accuracy = accuracy_score(y_test, y_pred_dt)
+# 최적 모델 성능 평가
+best_xgb = grid_xgb.best_estimator_
+y_pred_xgb = best_xgb.predict(X_test)
+xgb_accuracy = accuracy_score(y_test, y_pred_xgb)
 
-print("Best Hyperparameters (DT):", grid_search.best_params_)
-print("Best Accuracy (DT):", dt_accuracy)
-print("Classification Report (DT):\n", classification_report(y_test, y_pred_dt))
+print(" Best Parameters (XGB):", grid_xgb.best_params_)
+print("XGB Accuracy:", xgb_accuracy)
+print("Classification Report (XGB):\n", classification_report(y_test, y_pred_xgb))
 
-#  6. Feature Importance 시각화
-importances = best_dt.feature_importances_
-importance_df = pd.DataFrame({
+# Feature Importance 시각화
+importances = best_xgb.feature_importances_
+importance_df_xgb = pd.DataFrame({
     'Feature': X.columns,
     'Importance': importances
 }).sort_values(by='Importance', ascending=False)
 
-plt.figure(figsize=(12, 6))
-sns.barplot(data=importance_df, x='Feature', y='Importance')
-plt.title(" Decision Tree Feature Importance")
-plt.tight_layout()
+plt.figure(figsize=(14, 6))
+sns.barplot(data=importance_df_xgb, x='Feature', y='Importance')
+plt.title("XGBoost Feature Importance")
 plt.xticks(rotation=45)
+plt.tight_layout()
 plt.show()
